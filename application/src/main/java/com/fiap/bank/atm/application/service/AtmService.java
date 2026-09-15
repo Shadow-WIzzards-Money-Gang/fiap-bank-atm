@@ -1,10 +1,13 @@
 package com.fiap.bank.atm.application.service;
 
+import com.fiap.bank.atm.application.dto.AccountInfoDTO;
+import com.fiap.bank.atm.application.dto.TransactionDTO;
 import com.fiap.bank.atm.domain.exception.InvalidPinException;
 import com.fiap.bank.atm.domain.model.Account;
 import com.fiap.bank.atm.domain.model.Money;
-import com.fiap.bank.atm.domain.model.Transaction;
 import com.fiap.bank.atm.domain.repository.AccountRepository;
+
+import java.math.BigDecimal;
 import java.util.List;
 
 public class AtmService {
@@ -15,7 +18,7 @@ public class AtmService {
         this.accountRepository = accountRepository;
     }
 
-    public Account authenticate(String accountNumber, String pin) {
+    public AccountInfoDTO authenticate(String accountNumber, String pin) {
         Account account = accountRepository.findByAccountNumber(accountNumber);
 
         if (account == null) {
@@ -25,26 +28,26 @@ public class AtmService {
         try {
             account.authenticate(pin);
             currentAccount = account;
-            return account;
+            return AccountInfoDTO.from(account);
         } catch (RuntimeException e) {
             accountRepository.save(account); // Save to persist failed attempts / blocked state
             throw e;
         }
     }
 
-    public void withdraw(double amount) {
+    public void withdraw(BigDecimal amount) {
         ensureAuthenticated();
         currentAccount.withdraw(Money.of(amount));
         accountRepository.save(currentAccount);
     }
 
-    public void deposit(double amount) {
+    public void deposit(BigDecimal amount) {
         ensureAuthenticated();
         currentAccount.deposit(Money.of(amount));
         accountRepository.save(currentAccount);
     }
 
-    public void transfer(String targetAccountNumber, double amount) {
+    public void transfer(String targetAccountNumber, BigDecimal amount) {
         ensureAuthenticated();
 
         Account targetAccount = accountRepository.findByAccountNumber(targetAccountNumber);
@@ -57,22 +60,25 @@ public class AtmService {
         accountRepository.save(targetAccount);
     }
 
-    public Money getBalance() {
+    public BigDecimal getBalance() {
         ensureAuthenticated();
-        return currentAccount.getBalance();
+        return currentAccount.getBalance().getAmount();
     }
 
-    public List<Transaction> getStatement() {
+    public List<TransactionDTO> getStatement() {
         ensureAuthenticated();
-        return currentAccount.getTransactions();
+        return currentAccount.getTransactions().stream().map(TransactionDTO::from).toList();
     }
 
     public void logout() {
         currentAccount = null;
     }
 
-    public Account getCurrentAccount() {
-        return currentAccount;
+    public AccountInfoDTO getCurrentAccount() {
+        if (currentAccount == null) {
+            return null;
+        }
+        return AccountInfoDTO.from(currentAccount);
     }
 
     public boolean isAuthenticated() {
