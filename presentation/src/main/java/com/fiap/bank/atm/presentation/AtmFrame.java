@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.IntStream;
 
 public class AtmFrame extends javax.swing.JFrame {
 
@@ -528,16 +529,14 @@ public class AtmFrame extends javax.swing.JFrame {
         sb.append("----------------------------------------\n");
 
         List<TransactionDTO> txs = atmService.getStatement();
-        int count = 0;
-        // Pega as últimas 5 transações
-        for (int i = txs.size() - 1; i >= 0 && count < 5; i--) {
-            TransactionDTO tx = txs.get(i);
-            sb.append(String.format("%-12s %-14s %12s\n",
-                    tx.timestamp().format(DateTimeFormatter.ofPattern("dd/MM HH:mm")),
-                    tx.type().getDescription(),
-                    formatCurrency(tx.amount())));
-            count++;
-        }
+        // Pega as últimas 5 transações, da mais recente para a mais antiga
+        IntStream.iterate(txs.size() - 1, i -> i >= 0, i -> i - 1)
+                .limit(5)
+                .mapToObj(txs::get)
+                .forEach(tx -> sb.append(String.format("%-12s %-14s %12s\n",
+                        tx.timestamp().format(DateTimeFormatter.ofPattern("dd/MM HH:mm")),
+                        tx.type().getDescription(),
+                        formatCurrency(tx.amount()))));
 
         sb.append("----------------------------------------\n");
         sb.append("SALDO ATUAL: ").append(formatCurrency(acc.balance())).append("\n");
